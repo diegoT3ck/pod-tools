@@ -133,8 +133,12 @@ def _queue_state() -> tuple[set, list]:
 def _vram() -> dict:
     stats = comfy("GET", "/system_stats")
     dev = (stats.get("devices") or [{}])[0]
+    # torch_vram_total = VRAM que ya tiene reservada ComfyUI (modelos en caché); puede reutilizarla
+    # o liberarla, así que cuenta como disponible para el siguiente trabajo.
     info = {"gpu": dev.get("name"), "vram_total_gib": _gib(dev.get("vram_total")),
             "vram_free_gib": _gib(dev.get("vram_free")),
+            "comfy_reserved_gib": _gib(dev.get("torch_vram_total")),
+            "vram_available_for_comfy_gib": _gib((dev.get("vram_free") or 0) + (dev.get("torch_vram_total") or 0)),
             "comfyui_version": stats.get("system", {}).get("comfyui_version")}
     try:
         ps = _request("GET", f"{OLLAMA_URL}/api/ps", timeout=5)
@@ -238,10 +242,11 @@ def _fmt_s(s) -> str:
 
 def _preflight(need_gib: float, allow_slow: bool) -> dict | None:
     v = _vram()
-    if v["vram_free_gib"] >= need_gib or allow_slow:
+    available = v["vram_available_for_comfy_gib"]
+    if available >= need_gib or allow_slow:
         return None
     return {"ok": False, "needs_confirmation": True, "vram": v,
-            "detail": (f"VRAM libre {v['vram_free_gib']} GiB < ~{need_gib} GiB estimados. ComfyUI "
+            "detail": (f"VRAM disponible para ComfyUI {available} GiB < ~{need_gib} GiB estimados. ComfyUI "
                        "descargará parte a RAM y será varias veces más lento. Opciones: repetir con "
                        "allow_slow=true, o liberar memoria (free_comfy_vram / descargar el LLM).")}
 
