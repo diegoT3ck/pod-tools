@@ -413,7 +413,7 @@ def list_workflows() -> dict:
         try:
             wf = json.loads(f.read_text())
             out.append({"name": f.stem, "estimate": _estimate_workflow(f.stem), "nodes": {
-                nid: {"class_type": n.get("class_type"),
+                nid: {"class_type": n.get("class_type"), "title": n.get("_meta", {}).get("title"),
                       "inputs": [k for k, v in n.get("inputs", {}).items() if not isinstance(v, list)]}
                 for nid, n in wf.items()}})
         except (json.JSONDecodeError, AttributeError) as e:

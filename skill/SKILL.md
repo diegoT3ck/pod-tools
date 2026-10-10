@@ -50,7 +50,11 @@ La GPU (32 GB) se comparte con el LLM (~22–24 GB, se mantiene cargado). Quedan
 
 `list_workflows` muestra los workflows disponibles, su tiempo estimado y qué entradas acepta
 cada nodo; `run_workflow` los ejecuta con `overrides` como `{"6.text": "...", "3.seed": 42}`.
-Empieza con pocos frames y resolución baja para validar el prompt; luego sube.
+- `wan22_t2v_5b`: texto → vídeo MP4 (Wan 2.2 5B). Usa su resolución nativa **1280×704** (o
+  704×1280 vertical); por debajo la calidad se degrada mucho. Para validar un prompt rápido baja
+  `length` (frames, 4n+1 a 24 fps: 25 ≈ 1 s, 49 ≈ 2 s) o `steps`, no la resolución.
+- No cabe entero junto al LLM: devolverá `needs_confirmation`; pregunta al usuario antes de usar
+  `allow_slow=true`.
 
 ## Archivos olvidados
 
