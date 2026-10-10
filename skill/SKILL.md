@@ -28,9 +28,10 @@ local, verifica el hash y borra el original del pod**. No hace falta `pod-sync`.
 
 ## Memoria de la GPU
 
-La GPU (32 GB) se comparte con el LLM (~22–24 GB, se mantiene cargado). Quedan ~8–10 GB:
+La GPU (32 GB) se comparte con el LLM (~28 GB con visión, se mantiene cargado). Quedan ~4 GB:
 
-- SD 1.5 / SDXL caben. Vídeo (Wan 2.2 5B) cabe justo y va más lento; 14B no cabe junto al LLM.
+- SD 1.5 cabe. SDXL y vídeo (Wan 2.2 5B) no caben enteros: el MCP devolverá `needs_confirmation`
+  y ComfyUI descargará parte a RAM (más lento). Explícaselo al usuario y pregúntale.
 - `pod_status` muestra `vram_free_gib` y el LLM cargado. `run_workflow` libera la VRAM de
   ComfyUI al terminar por defecto; para imágenes, ofrece `free_comfy_vram` al acabar una sesión.
 - No subas `batch_size` > 2 ni resolución > ~1536 px sin que el usuario lo pida.

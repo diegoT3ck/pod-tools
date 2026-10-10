@@ -66,7 +66,7 @@ bash /workspace/pod-tools/pod/start-services.sh
    local/configure-pod.sh ssh9.vast.ai 21609 --bootstrap
    ssh vast-pod tail -f /workspace/bootstrap.log     # seguir el progreso (Ctrl+C no lo detiene)
    ```
-3. **Úsalo** desde OpenCode con el modelo `ollama-pod/qwen3.8-27b-text` y el MCP `comfyui`.
+3. **Úsalo** desde OpenCode con el modelo `ollama-pod/huihui_ai/Qwen3.8-abliterated:27b` y el MCP `comfyui`.
 
 `pod/bootstrap.sh` es idempotente y hace todo en automático:
 
@@ -75,7 +75,7 @@ bash /workspace/pod-tools/pod/start-services.sh
 | 0. Preflight | Revisa root, GPU, driver, Python, herramientas, red, registro de Ollama, URLs de modelos y disco necesario. **No instala nada si algo falla.** | — |
 | 1. Sistema | `apt-get` solo de lo que falte (git, tmux, curl, zstd, python3-venv) | herramientas presentes |
 | 2. Ollama | instalador oficial con `OLLAMA_VERSION`, arranca `ollama serve` | versión y servidor responden |
-| 3. LLM | `ollama pull` + variante solo texto sin proyector de visión (~5 GB menos de VRAM) | genera texto, 100% en GPU, sin visión |
+| 3. LLM | `ollama pull` (+ variante solo texto opcional con `LLM_TEXT_ONLY=1`: ~5.5 GB menos de VRAM, pero no ve imágenes) | genera texto, 100% en GPU |
 | 4. ComfyUI | clona, venv, torch (`TORCH_INDEX`), requirements | CUDA + matmul en GPU, imports |
 | 5. Modelos | descarga `pod/models.txt` (reanudable) | tamaño y SHA-256 contra Hugging Face |
 | 6. Servicios | `start-services.sh` (LLM primero, luego ComfyUI) | ComfyUI en CUDA, ve cada modelo, LLM cargado |

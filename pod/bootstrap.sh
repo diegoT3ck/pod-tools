@@ -15,7 +15,7 @@ OLLAMA_VERSION="${OLLAMA_VERSION:-0.40.2}"
 OLLAMA_MODELS_DIR="${OLLAMA_MODELS_DIR:-/workspace/ollama-models}"
 LLM_MODEL="${LLM_MODEL:-huihui_ai/Qwen3.8-abliterated:27b}"
 LLM_SIZE_GB="${LLM_SIZE_GB:-18}"                 # para el chequeo de disco si aún no está descargado
-LLM_TEXT_ONLY="${LLM_TEXT_ONLY:-1}"              # 1 = variante sin proyector de visión (~5 GB menos de VRAM)
+LLM_TEXT_ONLY="${LLM_TEXT_ONLY:-0}"              # 1 = variante sin visión: ~5.5 GB menos de VRAM, pero no ve lo que genera
 LLM_TEXT_NAME="${LLM_TEXT_NAME:-qwen3.8-27b-text}"
 COMFY_DIR="${COMFY_DIR:-/workspace/ComfyUI}"
 COMFY_REPO="${COMFY_REPO:-https://github.com/comfyanonymous/ComfyUI.git}"
