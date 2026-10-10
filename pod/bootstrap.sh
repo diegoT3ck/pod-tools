@@ -23,7 +23,7 @@ TORCH_INDEX="${TORCH_INDEX:-https://download.pytorch.org/whl/cu128}"   # cu128 =
 MIN_DRIVER="${MIN_DRIVER:-570}"                  # driver mínimo para CUDA 12.8
 MODELS_FILE="${MODELS_FILE:-$HERE/models.txt}"   # vacío = no descargar modelos de ComfyUI
 VERIFY_SHA="${VERIFY_SHA:-1}"                    # 1 = verificar sha256 de cada modelo contra Hugging Face
-RESERVE_VRAM_GB="${RESERVE_VRAM_GB:-2}"
+RESERVE_VRAM_GB="${RESERVE_VRAM_GB:-0.5}"
 DISK_MARGIN_GB="${DISK_MARGIN_GB:-15}"           # venv de ComfyUI (~8 GB) + holgura
 
 export OLLAMA_HOST=127.0.0.1:11434 OLLAMA_MODELS="$OLLAMA_MODELS_DIR"
