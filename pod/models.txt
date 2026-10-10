@@ -1,0 +1,10 @@
+# Modelos de ComfyUI que descarga bootstrap.sh: <carpeta bajo ComfyUI/models> <url>
+# Se saltan los que ya existen. Líneas con # se ignoran.
+
+# Imagen: SDXL base (~6.9 GB)
+checkpoints       https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors
+
+# Vídeo: Wan 2.2 TI2V 5B (~18 GB en total)
+vae               https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan2.2_vae.safetensors
+text_encoders     https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors
+diffusion_models  https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors

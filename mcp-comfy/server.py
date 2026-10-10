@@ -130,20 +130,47 @@ def _queue_state() -> tuple[set, list]:
     return running, pending
 
 
+_GPU_PROCS_CMD = (
+    "nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader,nounits | "
+    "while IFS=', ' read -r p m; do printf '%s\\t' \"$m\"; tr '\\0' ' ' < /proc/$p/cmdline 2>/dev/null | cut -c1-200; echo; done"
+)
+
+
+def _gpu_procs() -> dict | None:
+    """VRAM real por proceso (MiB) vía nvidia-smi en el pod. ComfyUI (cudaMallocAsync) y Ollama
+    informan mal su propio consumo, así que esta es la fuente fiable. None si ssh falla."""
+    try:
+        out = _ssh(_GPU_PROCS_CMD, timeout=15)
+    except (ComfyError, subprocess.TimeoutExpired):
+        return None
+    usage = {"comfy": 0, "llm": 0, "other": 0}
+    for line in out.splitlines():
+        mib, _, cmd = line.partition("\t")
+        if not mib.strip().isdigit():
+            continue
+        kind = "llm" if ("llama-server" in cmd or "ollama" in cmd) else "comfy" if "main.py" in cmd else "other"
+        usage[kind] += int(mib)
+    return usage
+
+
 def _vram() -> dict:
     stats = comfy("GET", "/system_stats")
     dev = (stats.get("devices") or [{}])[0]
-    # torch_vram_total = VRAM que ya tiene reservada ComfyUI (modelos en caché); puede reutilizarla
-    # o liberarla, así que cuenta como disponible para el siguiente trabajo.
+    free = dev.get("vram_free") or 0
+    procs = _gpu_procs()
+    # La VRAM que ya ocupa ComfyUI (modelos en caché) la puede reutilizar o liberar, así que cuenta
+    # como disponible para el siguiente trabajo. Sin nvidia-smi, se usa lo que dice torch.
+    comfy_used = procs["comfy"] * 2**20 if procs else (dev.get("torch_vram_total") or 0)
     info = {"gpu": dev.get("name"), "vram_total_gib": _gib(dev.get("vram_total")),
-            "vram_free_gib": _gib(dev.get("vram_free")),
-            "comfy_reserved_gib": _gib(dev.get("torch_vram_total")),
-            "vram_available_for_comfy_gib": _gib((dev.get("vram_free") or 0) + (dev.get("torch_vram_total") or 0)),
+            "vram_free_gib": _gib(free),
+            "comfy_used_gib": _gib(comfy_used),
+            "vram_available_for_comfy_gib": _gib(free + comfy_used),
             "comfyui_version": stats.get("system", {}).get("comfyui_version")}
+    if procs:
+        info["llm_used_gib"] = _gib(procs["llm"] * 2**20)
     try:
         ps = _request("GET", f"{OLLAMA_URL}/api/ps", timeout=5)
-        info["llm_loaded"] = [{"model": m.get("name"), "vram_gib": _gib(m.get("size_vram"))}
-                              for m in ps.get("models", [])]
+        info["llm_loaded"] = [m.get("name") for m in ps.get("models", [])]
     except ComfyError:
         info["llm_loaded"] = "desconocido (Ollama no responde por el túnel)"
     return info

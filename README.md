@@ -56,6 +56,37 @@ git clone https://github.com/diegoT3ck/pod-tools /workspace/pod-tools   # la pri
 bash /workspace/pod-tools/pod/start-services.sh
 ```
 
+## Pod nuevo en 3 pasos
+
+1. **Crea el pod** en Vast.ai (GPU NVIDIA con driver ≥ 570, ~100 GB de disco) con tu clave
+   pública en *Account → Keys*. Copia host y puerto de la ventana SSH.
+2. **Configura tu máquina** (backup automático de `~/.ssh/config` y `known_hosts`, te muestra
+   las huellas del host y pide confirmación) y lanza la instalación en el pod:
+   ```bash
+   local/configure-pod.sh ssh9.vast.ai 21609 --bootstrap
+   ssh vast-pod tail -f /workspace/bootstrap.log     # seguir el progreso (Ctrl+C no lo detiene)
+   ```
+3. **Úsalo** desde OpenCode con el modelo `ollama-pod/qwen3.8-27b-text` y el MCP `comfyui`.
+
+`pod/bootstrap.sh` es idempotente y hace todo en automático:
+
+| Fase | Qué hace | Test tras instalar |
+|---|---|---|
+| 0. Preflight | Revisa root, GPU, driver, Python, herramientas, red, registro de Ollama, URLs de modelos y disco necesario. **No instala nada si algo falla.** | — |
+| 1. Sistema | `apt-get` solo de lo que falte (git, tmux, curl, zstd, python3-venv) | herramientas presentes |
+| 2. Ollama | instalador oficial con `OLLAMA_VERSION`, arranca `ollama serve` | versión y servidor responden |
+| 3. LLM | `ollama pull` + variante solo texto sin proyector de visión (~5 GB menos de VRAM) | genera texto, 100% en GPU, sin visión |
+| 4. ComfyUI | clona, venv, torch (`TORCH_INDEX`), requirements | CUDA + matmul en GPU, imports |
+| 5. Modelos | descarga `pod/models.txt` (reanudable) | tamaño y SHA-256 contra Hugging Face |
+| 6. Servicios | `start-services.sh` (LLM primero, luego ComfyUI) | ComfyUI en CUDA, ve cada modelo, LLM cargado |
+
+Variables (por entorno): `OLLAMA_VERSION`, `LLM_MODEL`, `LLM_TEXT_ONLY`, `LLM_TEXT_NAME`,
+`TORCH_INDEX`, `MIN_DRIVER`, `MODELS_FILE` (vacío = sin modelos), `VERIFY_SHA`,
+`RESERVE_VRAM_GB`. Para otros modelos de ComfyUI, edita `pod/models.txt`.
+
+Tras reiniciar un pod ya instalado basta `bash /workspace/pod-tools/pod/start-services.sh`
+(si cambió host/puerto, antes `local/configure-pod.sh <host> <puerto>`).
+
 ## Requisitos y configuración
 
 - `Host` SSH (por defecto `vast-pod`) con autenticación por clave y un script `pod-up` que abra

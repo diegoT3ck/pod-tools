@@ -6,8 +6,16 @@ set -uo pipefail
 
 OLLAMA_MODELS_DIR="${OLLAMA_MODELS_DIR:-/workspace/ollama-models}"
 COMFY_DIR="${COMFY_DIR:-/workspace/ComfyUI}"
-LLM_MODEL="${LLM_MODEL:-huihui_ai/Qwen3.8-abliterated:27b}"
-RESERVE_VRAM_GB="${RESERVE_VRAM_GB:-2}"   # margen para que el LLM pueda crecer su contexto
+# LLM a precargar. Sin definir: la variante solo texto si existe (la crea bootstrap.sh), si no
+# el modelo original. LLM_MODEL="" = no precargar nada.
+LLM_MODEL="${LLM_MODEL-__auto__}"
+LLM_TEXT_NAME="${LLM_TEXT_NAME:-qwen3.8-27b-text}"
+LLM_BASE_MODEL="${LLM_BASE_MODEL:-huihui_ai/Qwen3.8-abliterated:27b}"
+START_COMFY="${START_COMFY:-1}"           # 0 = solo Ollama (lo usa bootstrap.sh)
+RESERVE_VRAM_GB="${RESERVE_VRAM_GB:-2}"   # VRAM que ComfyUI deja libre para el LLM
+# --disable-dynamic-vram: con "dynamic VRAM" ComfyUI recopia los pesos desde RAM en cada paso;
+# en hosts con PCIe estrecho (Gen3 x4 medido) eso hacía SDXL ~1.6x más lento.
+COMFY_EXTRA_ARGS="${COMFY_EXTRA_ARGS---disable-dynamic-vram}"
 
 start() {
   local name="$1" cmd="$2"
@@ -34,6 +42,14 @@ start ollama "OLLAMA_FLASH_ATTENTION=0 GGML_CUDA_DISABLE_GRAPHS=1 OLLAMA_KEEP_AL
 OLLAMA_HOST=127.0.0.1:11434 OLLAMA_MODELS=$OLLAMA_MODELS_DIR ollama serve 2>&1 | tee -a /workspace/ollama-serve.log"
 wait_for Ollama http://127.0.0.1:11434/api/version 30
 
+if [[ "$LLM_MODEL" == __auto__ ]]; then
+  if curl -s -m 5 http://127.0.0.1:11434/api/tags | grep -q "\"name\":\"$LLM_TEXT_NAME\(:latest\)\?\""; then
+    LLM_MODEL="$LLM_TEXT_NAME"
+  else
+    LLM_MODEL="$LLM_BASE_MODEL"
+  fi
+fi
+
 if [[ -n "$LLM_MODEL" ]]; then
   echo "· precargando $LLM_MODEL (hasta 3 min)…"
   if timeout 180 curl -s -o /dev/null -w '' http://127.0.0.1:11434/api/generate \
@@ -44,8 +60,10 @@ if [[ -n "$LLM_MODEL" ]]; then
   fi
 fi
 
+[[ "$START_COMFY" == 1 ]] || exit 0
+
 start comfy "cd '$COMFY_DIR' && . venv/bin/activate && \
-python main.py --listen 127.0.0.1 --port 8188 --reserve-vram $RESERVE_VRAM_GB 2>&1 | tee -a /workspace/comfy.log"
+python main.py --listen 127.0.0.1 --port 8188 --reserve-vram $RESERVE_VRAM_GB $COMFY_EXTRA_ARGS 2>&1 | tee -a /workspace/comfy.log"
 wait_for ComfyUI http://127.0.0.1:8188/ 120
 
 nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader | sed 's/^/VRAM usada: /'
