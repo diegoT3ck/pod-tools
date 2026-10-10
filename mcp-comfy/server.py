@@ -348,14 +348,15 @@ def generate_image(
     lora: str = "",
     lora_strength: float = 0.8,
     allow_slow: bool = False,
-    unload_after: bool = False,
+    unload_after: bool = True,
     keep_remote: bool = False,
 ) -> dict:
     """Encola texto→imagen (SD1.5/SDXL; para otros modelos usa run_workflow).
     dest_dir: ruta ABSOLUTA local donde se guardará (p. ej. <proyecto>/outputs).
     Devuelve prompt_id y estimación de tiempo/peso; luego llama a get_result.
     Si la VRAM no alcanza devuelve needs_confirmation (repite con allow_slow=true).
-    Al terminar, el original del pod se borra tras verificar el hash (keep_remote=true lo evita)."""
+    Al terminar, el original del pod se borra tras verificar el hash (keep_remote=true lo evita)
+    y se libera la VRAM de ComfyUI (unload_after=false la mantiene para series rápidas)."""
     import random
     try:
         dest = _dest(dest_dir)
@@ -496,6 +497,15 @@ def _download(item: dict, dest: Path) -> tuple[Path, str, int]:
     return target, digest, size
 
 
+def _free_comfy() -> bool:
+    """Pide a ComfyUI descargar modelos y vaciar su caché de VRAM. False si no responde."""
+    try:
+        comfy("POST", "/free", {"unload_models": True, "free_memory": True})
+        return True
+    except ComfyError:
+        return False
+
+
 def _ssh(cmd: str, stdin: bytes = b"", timeout: int = 60) -> str:
     r = subprocess.run(["ssh", *SSH_OPTS, POD_HOST, cmd], input=stdin, capture_output=True, timeout=timeout)
     if r.returncode != 0:
@@ -610,20 +620,15 @@ def get_result(prompt_id: str, wait_seconds: int = 20) -> dict:
                 if st.get("status_str") == "error":
                     msgs = [m for m in st.get("messages", []) if m and m[0] == "execution_error"]
                     job["result"] = {"ok": False, "status": "error", "prompt_id": prompt_id,
-                                     "detail": json.dumps(msgs)[:2000]}
+                                     "detail": json.dumps(msgs)[:2000],
+                                     "comfy_vram_freed": job["unload_after"] and _free_comfy()}
                     return job["result"]
                 total = _exec_seconds(st) or time.time() - job.get("started_at", job["submitted_at"])
                 files = _deliver(_collect_outputs(hist), Path(job["dest"]), job["keep_remote"])
                 if job.get("history_norm"):
                     norm = (total - MODEL_LOAD_OVERHEAD_S) / job["history_norm"] if job["kind"] == "image" else total
                     _record(job["history_key"], max(norm, 0.001))
-                freed = False
-                if job["unload_after"]:
-                    try:
-                        comfy("POST", "/free", {"unload_models": True, "free_memory": True})
-                        freed = True
-                    except ComfyError:
-                        pass
+                freed = job["unload_after"] and _free_comfy()
                 job["result"] = {"ok": True, "status": "success", "prompt_id": prompt_id,
                                  "duration_s": round(total), "files": files, "comfy_vram_freed": freed,
                                  "message": f"Listo en {_fmt_s(total)}: {len(files)} archivo(s) en {job['dest']}"}
@@ -653,7 +658,8 @@ def cancel_job(prompt_id: str) -> dict:
             return {"ok": True, "action": "removed_from_queue"}
         if prompt_id in running:
             comfy("POST", "/interrupt", {"prompt_id": prompt_id})
-            return {"ok": True, "action": "interrupted"}
+            # /free se aplica cuando ComfyUI queda libre, así que no deja el modelo cargado.
+            return {"ok": True, "action": "interrupted", "comfy_vram_freed": _free_comfy()}
         return _error("El trabajo no está en cola ni en ejecución.")
     except ComfyError as e:
         return _error(e)

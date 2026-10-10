@@ -12,7 +12,8 @@ START_COMFY="${START_COMFY:-1}"           # 0 = solo Ollama (lo usa bootstrap.sh
 RESERVE_VRAM_GB="${RESERVE_VRAM_GB:-2}"   # VRAM que ComfyUI deja libre para el LLM
 # --disable-dynamic-vram: con "dynamic VRAM" ComfyUI recopia los pesos desde RAM en cada paso;
 # en hosts con PCIe estrecho (Gen3 x4 medido) eso hacía SDXL ~1.6x más lento.
-COMFY_EXTRA_ARGS="${COMFY_EXTRA_ARGS---disable-dynamic-vram}"
+# --disable-cuda-malloc: el asignador clásico devuelve la VRAM al liberar (residuo 0.9 GB vs 1.3 GB).
+COMFY_EXTRA_ARGS="${COMFY_EXTRA_ARGS---disable-dynamic-vram --disable-cuda-malloc}"
 
 start() {
   local name="$1" cmd="$2"
